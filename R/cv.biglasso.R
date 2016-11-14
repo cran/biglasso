@@ -1,14 +1,21 @@
-cv.biglasso <- function(X, y, row.idx = 1:nrow(X), ..., ncores = 1, 
-                        nfolds = 10, seed, cv.ind, trace = FALSE) {
-  fit <- biglasso(X=X, y=y, ...)
+cv.biglasso <- function(X, y, row.idx = 1:nrow(X), ncores = parallel::detectCores(), ...,
+                        nfolds = 5, seed, cv.ind, trace = FALSE) {
+  
+  max.cores <- parallel::detectCores()
+  if (ncores > max.cores) {
+    cat("The number of cores specified (", ncores, ") is larger than the number of avaiable cores (", max.cores, "). Use ", max.cores, " cores instead! \n", sep = "")
+    ncores = max.cores
+  }
+  
+  fit <- biglasso(X = X, y = y, row.idx = row.idx, ncores = ncores, ...)
   n <- fit$n
   E <- Y <- matrix(NA, nrow=n, ncol=length(fit$lambda))
   y <- fit$y
-
+  
   if (fit$family == 'binomial') {
     PE <- E
   }
-  
+
   if (!missing(seed)) set.seed(seed)
   if (missing(cv.ind)) {
     if (fit$family=="binomial" & (min(table(y)) > nfolds)) {
@@ -25,54 +32,61 @@ cv.biglasso <- function(X, y, row.idx = 1:nrow(X), ..., ncores = 1,
       cv.ind <- ceiling(sample(1:n)/n*nfolds)
     }
   }
-
+  
   cv.args <- list(...)
   cv.args$lambda <- fit$lambda
   
   parallel <- FALSE
   if (ncores > 1) {
-    max.cores <- detectCores()
-    if (ncores > max.cores) {
-      stop("The number of cores specified (", ncores, ") is larger than the number of avaiable cores (", max.cores, ")!")
-    }
-    cluster <- makeCluster(ncores)
+    cluster <- parallel::makeCluster(ncores)
     if (!("cluster" %in% class(cluster))) stop("cluster is not of class 'cluster'; see ?makeCluster")
     parallel <- TRUE
     ## pass the descriptor info to each cluster ##
     xdesc <- describe(X)
-    clusterExport(cluster, c("cv.ind", "xdesc", "y", "cv.args", 'parallel'), 
-                  envir=environment())
-    clusterCall(cluster, function() {require(biglasso)})
-    fold.results <- parLapply(cl=cluster, X=1:nfolds, fun=cvf, XX=xdesc, y=y, 
-                              cv.ind=cv.ind, cv.args=cv.args, parallel = parallel)
-    stopCluster(cluster)
+    parallel::clusterExport(cluster, c("cv.ind", "xdesc", "y", "cv.args", 'parallel'), 
+                            envir=environment())
+    parallel::clusterCall(cluster, function() {
+      
+      require(biglasso)
+      # require(bigmemory)
+      # require(Matrix)
+      # dyn.load("~/GitHub/biglasso.Rcheck/biglasso/libs/biglasso.so")
+      # source("~/GitHub/biglasso/R/biglasso.R")
+      # source("~/GitHub/biglasso/R/predict.R")
+      # source("~/GitHub/biglasso/R/loss.R")
+    })
+    fold.results <- parallel::parLapply(cl = cluster, X = 1:nfolds, fun = cvf, XX = xdesc, 
+                                        y = y, cv.ind = cv.ind, cv.args = cv.args, 
+                                        parallel = parallel)
+    parallel::stopCluster(cluster)
   }
   
   for (i in 1:nfolds) {
     if (parallel) {
       res <- fold.results[[i]]
     } else {
-      if (trace) cat("Starting CV fold #",i,sep="","\n")
+      if (trace) cat("Starting CV fold #", i, sep="", "\n")
       res <- cvf(i, X, y, cv.ind, cv.args)
     }
     E[cv.ind==i, 1:res$nl] <- res$loss
     if (fit$family=="binomial") PE[cv.ind==i, 1:res$nl] <- res$pe
     Y[cv.ind==i, 1:res$nl] <- res$yhat
   }
-
+  
   ## Eliminate saturated lambda values, if any
   ind <- which(apply(is.finite(E), 2, all))
   E <- E[,ind]
   Y <- Y[,ind]
   lambda <- fit$lambda[ind]
-
+  
   ## Return
   cve <- apply(E, 2, mean)
   cvse <- apply(E, 2, sd) / sqrt(n)
   min <- which.min(cve)
-
+  
   val <- list(cve=cve, cvse=cvse, lambda=lambda, fit=fit, min=min, lambda.min=lambda[min],
-              null.dev=mean(loss.biglasso(y, rep(mean(y), n), fit$family)))
+              null.dev=mean(loss.biglasso(y, rep(mean(y), n), fit$family)),
+              cv.ind = cv.ind)
   if (fit$family=="binomial") {
     pe <- apply(PE, 2, mean)
     val$pe <- pe[is.finite(pe)]
@@ -91,9 +105,10 @@ cvf <- function(i, XX, y, cv.ind, cv.args, parallel= FALSE) {
   cv.args$y <- y
   cv.args$row.idx <- which(cv.ind != i)
   cv.args$warn <- FALSE
+  cv.args$ncores <- 1
   idx.test <- which(cv.ind == i)
   fit.i <- do.call("biglasso", cv.args)
-
+  
   y2 <- y[cv.ind==i]
   yhat <- matrix(predict(fit.i, XX, row.idx = idx.test, type="response"), length(y2))
   loss <- loss.biglasso(y2, yhat, fit.i$family)
@@ -101,18 +116,3 @@ cvf <- function(i, XX, y, cv.ind, cv.args, parallel= FALSE) {
   list(loss=loss, pe=pe, nl=length(fit.i$lambda), yhat=yhat)
 }
 
-## test
-#   if (!missing(cluster)) {
-#     if (!("cluster" %in% class(cluster))) stop("cluster is not of class 'cluster'; see ?makeCluster")
-#     ## pass the descriptor info to each cluster ##
-#     parallel <- TRUE
-#     xdesc <- describe(X)
-#     parallel::clusterExport(cluster, c("cv.ind", "xdesc", "y", "cv.args", 'parallel'), 
-#                             envir=environment())
-#     parallel::clusterCall(cluster, function() {
-#       require(biglasso)
-#     })
-#     fold.results <- parallel::parLapply(cl=cluster, X=1:nfolds, fun=cvf, XX=xdesc, y=y, 
-#                                         cv.ind=cv.ind, cv.args=cv.args, parallel = TRUE)
-# 
-#   }
