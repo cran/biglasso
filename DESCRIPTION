@@ -1,7 +1,7 @@
 Package: biglasso
-Version: 1.3-0
-Date: 2016-12-15
-Title: Extending Lasso Model Fitting to Big Data in R
+Version: 1.3-1
+Date: 2016-12-24
+Title: Extending Lasso Model Fitting to Big Data
 Author: Yaohui Zeng [aut,cre], Patrick Breheny [ctb]
 Maintainer: Yaohui Zeng <yaohui-zeng@uiowa.edu>
 Description: Extend lasso and elastic-net model fitting for ultrahigh-dimensional, 
@@ -18,6 +18,6 @@ LinkingTo: Rcpp, RcppArmadillo, bigmemory, BH
 VignetteBuilder: R.rsp
 Suggests: parallel, knitr, testthat, R.rsp
 NeedsCompilation: yes
-Packaged: 2016-12-21 19:49:49 UTC; yazeng
+Packaged: 2016-12-31 18:31:13 UTC; yazeng
 Repository: CRAN
-Date/Publication: 2016-12-21 23:26:54
+Date/Publication: 2016-12-31 22:01:52
