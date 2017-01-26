@@ -1,6 +1,9 @@
 
 #include "utilities.h"
 
+// free memory (no active cycling)
+void Free_memo_hsr_nac(double *a, double *r, int *e2);
+
 // update zj
 void update_zj(vector<double> &z, int *bedpp_accept, int *bedpp_accept_old,
                XPtr<BigMatrix> xpMat, int *row_idx,vector<int> &col_idx,
@@ -14,15 +17,27 @@ int check_strong_set(int *e1, int *e2, vector<double> &z, XPtr<BigMatrix> xpMat,
                      double lambda, double sumResid, double alpha, 
                      double *r, double *m, int n, int p);
 
-// check rest set
-int check_rest_set(int *e1, int *e2, vector<double> &z, XPtr<BigMatrix> xpMat, 
-                   int *row_idx, vector<int> &col_idx,
-                   NumericVector &center, NumericVector &scale, double *a,
-                   double lambda, double sumResid, double alpha, double *r, 
-                   double *m, int n, int p);
+// check rest set (no active cycling)
+int check_rest_set_nac(int *e2, vector<double> &z, XPtr<BigMatrix> xpMat, int *row_idx, 
+                       vector<int> &col_idx, NumericVector &center, NumericVector &scale,
+                       double *a, double lambda, double sumResid, double alpha, double *r, 
+                       double *m, int n, int p);
 
-// check rest set with dome screening
-int check_rest_set_hsr_dome(int *e1, int *e2, int *dome_accept, vector<double> &z, 
+// compute x^Txmax for each x_j. Used by DOME screening test
+// xj^Txmax = 1 / (sj*smax) * (sum_{i=1}^n (x[i, max]*x[i,j]) - cj * sum_{i=1}^n x[i, max])
+void dome_init(vector<double> &xtxmax, vector<int> &region, // region: whether xtxmax is within range of two boundary points.
+               vector<double> &tt, // tt = sqrt(n - 1/n * xtxmax*xtxmax)
+               XPtr<BigMatrix> xMat, int xmax_idx, double ynorm, double lambda_max,
+               int *row_idx, vector<int> &col_idx, NumericVector &center,
+               NumericVector &scale, int n, int p);
+
+// DOME test to determine the accept set of features;
+void dome_screen(int *accept, const vector<double> &xtxmax, const vector<int> &region, 
+                 const vector<double> &tt, const vector<double> &xty, double ynorm, double psi, 
+                 double lambda, double lambda_max, int n, int p);
+
+// check rest set with dome screening (no active cycling)
+int check_rest_set_hsr_dome_nac(int *e2, int *dome_accept, vector<double> &z, 
                             XPtr<BigMatrix> xpMat, int *row_idx,vector<int> &col_idx,
                             NumericVector &center, NumericVector &scale, double *a,
                             double lambda, double sumResid, double alpha, double *r, 
@@ -46,7 +61,7 @@ int check_rest_set_hsr_dome(int *e1, int *e2, int *dome_accept, vector<double> &
       l1 = lambda * m[jj] * alpha;
       l2 = lambda * m[jj] * (1 - alpha);
       if (fabs(z[j] - a[j] * l2) > l1) {
-        e1[j] = e2[j] = 1;
+        e2[j] = 1;
         violations++;
       }
     }
@@ -54,91 +69,8 @@ int check_rest_set_hsr_dome(int *e1, int *e2, int *dome_accept, vector<double> &
   return violations;
 }
 
-// compute x^Txmax for each x_j. Used by DOME screening test
-// xj^Txmax = 1 / (sj*smax) * (sum_{i=1}^n (x[i, max]*x[i,j]) - cj * sum_{i=1}^n x[i, max])
-void dome_init(vector<double> &xtxmax, vector<int> &region, // region: whether xtxmax is within range of two boundary points.
-               vector<double> &tt, // tt = sqrt(n - 1/n * xtxmax*xtxmax)
-               XPtr<BigMatrix> xMat, int xmax_idx, double ynorm, double lambda_max,
-               int *row_idx, vector<int> &col_idx, NumericVector &center,
-               NumericVector &scale, int n, int p) {
-  
-  MatrixAccessor<double> xAcc(*xMat);
-  double *xCol, *xCol_max;
-  double sum_xjxmax, tmp;
-  double sum_xmax = center[xmax_idx] * n;
-  double cutoff = n * lambda_max / ynorm;
-  int j, jj;
-  xCol_max = xAcc[xmax_idx];
-
-  #pragma omp parallel for private(j, sum_xjxmax, tmp) schedule(static) 
-  for (j = 0; j < p; j++) {
-    jj = col_idx[j];
-    xCol = xAcc[jj];
-    sum_xjxmax = 0.0;
-    for (int i = 0; i < n; i++) {
-      sum_xjxmax = sum_xjxmax + xCol[row_idx[i]] * xCol_max[row_idx[i]];
-    }
-    
-    xtxmax[j] = (sum_xjxmax - center[jj] * sum_xmax) / (scale[jj] * scale[xmax_idx]);
-    tmp = n - xtxmax[j]*xtxmax[j] / n;
-    if (tmp < 0.0) {
-      tt[j] = 0;
-    } else {
-      tt[j] = sqrt(tmp);
-    }
-
-    if (xtxmax[j] < - cutoff) {
-      region[j] = 1;
-    } else if (xtxmax[j] > cutoff) {
-      region[j] = 2;
-    } else {
-      region[j] = 3;
-    }
-  }
-}
-
-// DOME test to determine the accept set of features;
-void dome_screen(int *accept, const vector<double> &xtxmax, const vector<int> &region, 
-                 const vector<double> &tt, const vector<double> &xty, double ynorm, double psi, 
-                 double lambda, double lambda_max, int n, int p) {
-  int j;
-  double L, U, TOLERANCE = 1E-8;
-  double delta_lam = lambda_max - lambda;
-  double dlam_times_psi = delta_lam * psi; // temp result
-  double n_time_lam = n * lambda; // temp result
-  double U1 = n * lambda - sqrt(n) * ynorm * delta_lam / lambda_max;
-  double L2 = -n * lambda + sqrt(n) * ynorm * delta_lam / lambda_max;
-
-  #pragma omp parallel for private(j, L, U) schedule(static) 
-  for (j = 0; j < p; j++) {
-    switch (region[j]) {
-    case 1: // smaller than lower cutoff
-      L = - n_time_lam + delta_lam * xtxmax[j] + dlam_times_psi * tt[j];
-      U = U1;
-      break;
-    case 2: // larger than upper cutoff
-      L = L2;
-      U = n_time_lam + delta_lam * xtxmax[j] - dlam_times_psi * tt[j];
-      break;
-    case 3: // in between
-      L = - n_time_lam + delta_lam * xtxmax[j] + dlam_times_psi * tt[j];
-      U = n_time_lam + delta_lam * xtxmax[j] - dlam_times_psi * tt[j];
-      break;
-    default:
-      L = 0;
-      U = 0;
-      break;
-    }
-    if (xty[j] > L + TOLERANCE && xty[j] + TOLERANCE < U) { // reject
-      accept[j] = 0;
-    } else {
-      accept[j] = 1;
-    }
-  }
-}
-
-// Coordinate descent for gaussian models
-RcppExport SEXP cdfit_gaussian_hsr_dome(SEXP X_, SEXP y_, SEXP row_idx_,  
+// Coordinate descent for gaussian models (no active cycling)
+RcppExport SEXP cdfit_gaussian_hsr_dome_nac(SEXP X_, SEXP y_, SEXP row_idx_,  
                                         SEXP lambda_, SEXP nlambda_,
                                         SEXP lam_scale_,
                                         SEXP lambda_min_, SEXP alpha_, 
@@ -219,7 +151,6 @@ RcppExport SEXP cdfit_gaussian_hsr_dome(SEXP X_, SEXP y_, SEXP row_idx_,
   double l1, l2, cutoff, shift;
   double max_update, update, thresh; // for convergence check
   int i, j, jj, l, violations, lstart;
-  int *e1 = Calloc(p, int); // ever-active set
   int *e2 = Calloc(p, int); // strong set;
   double *r = Calloc(n, double);
   for (i = 0; i < n; i++) r[i] = y[i];
@@ -300,7 +231,7 @@ RcppExport SEXP cdfit_gaussian_hsr_dome(SEXP X_, SEXP y_, SEXP row_idx_,
       }
       if (nv > dfmax) {
         for (int ll = l; ll < L; ll++) iter[ll] = NA_INTEGER;
-        Free_memo_hsr(a, r, e1, e2);
+        Free_memo_hsr_nac(a, r, e2);
         Free(dome_accept);
         Free(dome_accept_old);
         return List::create(beta, center, scale, lambda, loss, iter, 
@@ -348,48 +279,43 @@ RcppExport SEXP cdfit_gaussian_hsr_dome(SEXP X_, SEXP y_, SEXP row_idx_,
     }
     n_reject[l] = p - sum(e2, p); // e2 set means not reject by dome or hsr;
 
-    while(iter[l] < max_iter) {
-      while(iter[l] < max_iter){
-        while(iter[l] < max_iter) {
-          iter[l]++;
-          
-          //solve lasso over ever-active set
-          max_update = 0.0;
-          for (j = 0; j < p; j++) {
-            if (e1[j]) {
-              jj = col_idx[j];
-              z[j] = crossprod_resid(xMat, r, sumResid, row_idx, center[jj], scale[jj], n, jj) / n + a[j];
-              l1 = lambda[l] * m[jj] * alpha;
-              l2 = lambda[l] * m[jj] * (1-alpha);
-              beta(j, l) = lasso(z[j], l1, l2, 1);
-              
-              shift = beta(j, l) - a[j];
-              if (shift !=0) {
-                // compute objective update for convergence check
-                //update =  z[j] * shift - 0.5 * (1 + l2) * (pow(beta(j, l), 2) - pow(a[j], 2)) - l1 * (fabs(beta(j, l)) -  fabs(a[j]));
-                update = pow(beta(j, l) - a[j], 2);
-                if (update > max_update) {
-                  max_update = update;
-                }
-                update_resid(xMat, r, shift, row_idx, center[jj], scale[jj], n, jj); // update r
-                sumResid = sum(r, n); //update sum of residual
-                a[j] = beta(j, l); // update a
+    while(iter[l] < max_iter){
+      while(iter[l] < max_iter) {
+        iter[l]++;
+        
+        //solve lasso over ever-active set
+        max_update = 0.0;
+        for (j = 0; j < p; j++) {
+          if (e2[j]) {
+            jj = col_idx[j];
+            z[j] = crossprod_resid(xMat, r, sumResid, row_idx, center[jj], scale[jj], n, jj) / n + a[j];
+            l1 = lambda[l] * m[jj] * alpha;
+            l2 = lambda[l] * m[jj] * (1-alpha);
+            beta(j, l) = lasso(z[j], l1, l2, 1);
+            
+            shift = beta(j, l) - a[j];
+            if (shift !=0) {
+              // compute objective update for convergence check
+              //update =  z[j] * shift - 0.5 * (1 + l2) * (pow(beta(j, l), 2) - pow(a[j], 2)) - l1 * (fabs(beta(j, l)) -  fabs(a[j]));
+              update = pow(beta(j, l) - a[j], 2);
+              if (update > max_update) {
+                max_update = update;
               }
+              update_resid(xMat, r, shift, row_idx, center[jj], scale[jj], n, jj); // update r
+              sumResid = sum(r, n); //update sum of residual
+              a[j] = beta(j, l); // update a
             }
           }
-          // Check for convergence
-          if (max_update < thresh) break;
         }
-        
-        // Scan for violations in strong set
-        violations = check_strong_set(e1, e2, z, xMat, row_idx, col_idx, center, scale, a, lambda[l], sumResid, alpha, r, m, n, p);
-        if (violations == 0) break;
+        // Check for convergence
+        if (max_update < thresh) break;
       }
-
+      
+      // Scan for violations in rest set
       if (dome) {
-        violations = check_rest_set_hsr_dome(e1, e2, dome_accept, z, xMat, row_idx, col_idx, center, scale, a, lambda[l], sumResid, alpha, r, m, n, p);
+        violations = check_rest_set_hsr_dome_nac(e2, dome_accept, z, xMat, row_idx, col_idx, center, scale, a, lambda[l], sumResid, alpha, r, m, n, p);
       } else {
-        violations = check_rest_set(e1, e2, z, xMat, row_idx, col_idx, center, scale, a, lambda[l], sumResid, alpha, r, m, n, p);
+        violations = check_rest_set_nac(e2, z, xMat, row_idx, col_idx, center, scale, a, lambda[l], sumResid, alpha, r, m, n, p);
       }
       
       if (violations == 0) {
@@ -403,7 +329,7 @@ RcppExport SEXP cdfit_gaussian_hsr_dome(SEXP X_, SEXP y_, SEXP row_idx_,
     }
   }
   
-  Free_memo_hsr(a, r, e1, e2);
+  Free_memo_hsr_nac(a, r, e2);
   Free(dome_accept);
   Free(dome_accept_old);
   return List::create(beta, center, scale, lambda, loss, iter, n_reject, n_dome_reject, Rcpp::wrap(col_idx));
