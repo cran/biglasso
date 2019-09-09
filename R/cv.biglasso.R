@@ -48,23 +48,23 @@
 #' above.}
 #' @author Yaohui Zeng and Patrick Breheny
 #' 
-#' Maintainer: Yaohui Zeng <yaohui-zeng@@uiowa.edu>
+#' Maintainer: Yaohui Zeng <yaohui.zeng@@gmail.com>
 #' @seealso \code{\link{biglasso}}, \code{\link{plot.cv.biglasso}},
 #' \code{\link{summary.cv.biglasso}}, \code{\link{setupX}}
 #' @examples
-#' 
+#' \dontrun{
 #' ## cv.biglasso
 #' data(colon)
 #' X <- colon$X
 #' y <- colon$y
-#' X.bm <- as.big.matrix(X)
+#' X.bm <- as.big.matrix(X, backingfile = "")
 #' 
 #' ## logistic regression
 #' cvfit <- cv.biglasso(X.bm, y, family = 'binomial', seed = 1234, ncores = 2)
 #' par(mfrow = c(2, 2))
 #' plot(cvfit, type = 'all')
 #' summary(cvfit)
-#' 
+#' }
 #' 
 #' @export cv.biglasso
 #' 

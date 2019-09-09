@@ -49,12 +49,12 @@ The object returned depends on \code{type}.
 Extract predictions from a fitted \code{\link{cv.biglasso}} object.
 }
 \examples{
-
+\dontrun{
 ## predict.cv.biglasso
 data(colon)
 X <- colon$X
 y <- colon$y
-X.bm <- as.big.matrix(X)
+X.bm <- as.big.matrix(X, backingfile = "")
 fit <- biglasso(X.bm, y, penalty = 'lasso', family = "binomial")
 cvfit <- cv.biglasso(X.bm, y, penalty = 'lasso', family = "binomial", seed = 1234, ncores = 2)
 coef <- coef(cvfit)
@@ -62,7 +62,7 @@ coef[which(coef != 0)]
 predict(cvfit, X.bm, type = "response")
 predict(cvfit, X.bm, type = "link")
 predict(cvfit, X.bm, type = "class")
-
+}
 }
 \seealso{
 \code{\link{biglasso}}, \code{\link{cv.biglasso}}
@@ -70,7 +70,7 @@ predict(cvfit, X.bm, type = "class")
 \author{
 Yaohui Zeng and Patrick Breheny
 
-Maintainer: Yaohui Zeng <yaohui-zeng@uiowa.edu>
+Maintainer: Yaohui Zeng <yaohui.zeng@gmail.com>
 }
 \keyword{models}
 \keyword{regression}
