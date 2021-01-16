@@ -6,53 +6,58 @@
 #' parameter lambda.
 #' 
 #' The objective function for linear regression (\code{family = "gaussian"}) is
-#' \deqn{\frac{1}{2n}\textrm{RSS} + \textrm{penalty},} for logistic regression
+#' \deqn{\frac{1}{2n}\textrm{RSS} + \lambda*\textrm{penalty},}{(1/(2n))*RSS+
+#' \lambda*penalty,} for logistic regression
 #' (\code{family = "binomial"}) it is \deqn{-\frac{1}{n} loglike +
-#' \textrm{penalty}.}
+#' \lambda*\textrm{penalty},}{-(1/n)*loglike+\lambda*penalty}, for cox regression,
+#'  breslow approximation for ties is applied.
 #' 
 #' Several advanced feature screening rules are implemented. For
 #' lasso-penalized linear regression, all the options of \code{screen} are
-#' applicable. Our proposal rule - "SSR-BEDPP" - achieves highest speedup so
-#' it's the recommended one, especially for ultrahigh-dimensional large-scale
-#' data sets. For logistic regression and/or the elastic net penalty, only
-#' "SSR" is applicable for now. More efficient rules are under development.
+#' applicable. Our proposal adaptive rule - \code{"Adaptive"} - achieves highest speedup
+#' so it's the recommended one, especially for ultrahigh-dimensional large-scale
+#' data sets. For cox regression and/or the elastic net penalty, only
+#' \code{"SSR"} is applicable for now. More efficient rules are under development.
 #' 
 #' @param X The design matrix, without an intercept. It must be a
 #' \code{\link[bigmemory]{big.matrix}} object. The function standardizes the
 #' data and includes an intercept internally by default during the model
 #' fitting.
-#' @param y The response vector.
+#' @param y The response vector for \code{family="gaussian"} or \code{family="binomial"}.
+#' For family="cox", y should be a two-column matrix with columns 'time' and
+#' 'status'. The latter is a binary variable, with '1' indicating death, and
+#' '0' indicating right censored.
 #' @param row.idx The integer vector of row indices of \code{X} that used for
 #' fitting the model. \code{1:nrow(X)} by default.
-#' @param penalty The penalty to be applied to the model. Either "lasso" (the
-#' default), "ridge", or "enet" (elastic net).
-#' @param family Either "gaussian" or "binomial", depending on the response.
+#' @param penalty The penalty to be applied to the model. Either \code{"lasso"}
+#' (the default), \code{"ridge"}, or \code{"enet"} (elastic net).
+#' @param family Either \code{"gaussian"}, \code{"binomial"} or \code{"cox"},
+#' depending on the response.
 #' @param alg.logistic The algorithm used in logistic regression. If "Newton"
 #' then the exact hessian is used (default); if "MM" then a
 #' majorization-minimization algorithm is used to set an upper-bound on the
 #' hessian matrix. This can be faster, particularly in data-larger-than-RAM
 #' case.
 #' @param screen The feature screening rule used at each \code{lambda} that
-#' discards features to speed up computation: "SSR" (default) is the sequential
-#' strong rule; "SEDPP" is the (sequential) EDPP rule. "SSR-BEDPP", "SSR-Dome",
-#' and "SSR-Slores" are our newly proposed screening rules which combine the
-#' strong rule with a safe rule (BEDPP, Dome test, or Slores rule). Among the
-#' three, the first two are for lasso-penalized linear regression, and the last
-#' one is for lasso-penalized logistic regression. "None" is to not apply a
-#' screening rule. \strong{Note that:} (1) for linear regression with elastic
-#' net penalty, both "SSR" and "SSR-BEDPP" are applicable since version 1.3-0;
-#' (2) only "SSR" is applicable to elastic-net-penalized logistic regression;
-#' (3) active set cycling strategy is incorporated with these screening rules
-#' by default. All other options with suffix "-NAC" are the corresponding
-#' versions without active set cycling update. These rules are for research
-#' purpose only.
+#' discards features to speed up computation: \code{"SSR"} (default if
+#' \code{penalty="ridge"} or \code{penalty="enet"} )is the sequential strong rule;
+#' \code{"Hybrid"} is our newly proposed hybrid screening rules which combine the
+#' strong rule with a safe rule. \code{"Adaptive"} (default for \code{penalty="lasso"}
+#' without \code{penalty.factor}) is our newly proposed adaptive rules which
+#' reuse screening reference for multiple lambda values. \strong{Note that:}
+#' (1) for linear regression with elastic net penalty, both \code{"SSR"} and
+#' \code{"Hybrid"} are applicable since version 1.3-0;  (2) only \code{"SSR"} is
+#' applicable to elastic-net-penalized logistic regression or cox regression;
+#' (3) active set cycling strategy is incorporated with these screening rules.
 #' @param safe.thresh the threshold value between 0 and 1 that controls when to
-#' stop safe test in the "SSR-Dome" and "SSR-BEDPP" rules. For example, 0.01
-#' means to stop Dome test at next lambda iteration if the number of features
-#' rejected by safe test at current lambda iteration is not larger than 1\% of
-#' the total number of features. So 1 means to always turn off safe test,
-#' whereas 0 (default) means to turn off safe test if the number of features
-#' rejected by safe test is 0 at current lambda.
+#' stop safe test. For example, 0.01 means to stop safe test at next lambda 
+#' iteration if the number of features rejected by safe test at current lambda
+#' iteration is not larger than 1\% of the total number of features. So 1 means
+#' to always turn off safe test, whereas 0 (default) means to turn off safe test
+#' if the number of features rejected by safe test is 0 at current lambda.
+#' @param update.thresh the non negative threshold value that controls how often to
+#' update the reference of safe rules for "Adaptive" methods. Smaller value means
+#' updating more often.
 #' @param ncores The number of OpenMP threads used for parallel computing.
 #' @param alpha The elastic-net mixing parameter that controls the relative
 #' contribution from the lasso (l1) and the ridge (l2) penalty. The penalty is
@@ -77,12 +82,13 @@
 #' no upper bound.  However, for large data sets, computational burden may be
 #' heavy for models with a large number of nonzero coefficients.
 #' @param penalty.factor A multiplicative factor for the penalty applied to
-#' each coefficient.  If supplied, \code{penalty.factor} must be a numeric
+#' each coefficient. If supplied, \code{penalty.factor} must be a numeric
 #' vector of length equal to the number of columns of \code{X}.  The purpose of
 #' \code{penalty.factor} is to apply differential penalization if some
 #' coefficients are thought to be more likely than others to be in the model.
 #' Current package doesn't allow unpenalized coefficients. That
-#' is\code{penalty.factor} cannot be 0.
+#' is\code{penalty.factor} cannot be 0. \code{penalty.factor} is only supported
+#' for "SSR" screen.
 #' @param warn Return warning messages for failures to converge and model
 #' saturation?  Default is TRUE.
 #' @param output.time Whether to print out the start and end time of the model
@@ -114,11 +120,10 @@
 #' less than 1e-6 are removed from model fitting.} \item{rejections}{The number
 #' of features rejected at each value of \code{lambda}.}
 #' \item{safe_rejections}{The number of features rejected by safe rules at each
-#' value of \code{lambda}. Only for "SSR-Dome", "SSR-BEDPP" and "SSR-Slores"
-#' cases.}
-#' @author Yaohui Zeng and Patrick Breheny
+#' value of \code{lambda}.}
+#' @author Yaohui Zeng, Chuyi Wang and Patrick Breheny
 #'
-#' Maintainer: Yaohui Zeng <yaohui.zeng@@gmail.com>
+#' Maintainer: Yaohui Zeng <yaohui.zeng@@gmail.com> and Chuyi Wang <wwaa0208@@gmail.com>
 #' @seealso \code{\link{biglasso-package}}, \code{\link{setupX}},
 #' \code{\link{cv.biglasso}}, \code{\link{plot.biglasso}},
 #' \code{\link[ncvreg]{ncvreg}}
@@ -128,7 +133,7 @@
 #' data(colon)
 #' X <- colon$X
 #' y <- colon$y
-#' X.bm <- as.big.matrix(X, backingfile = "")
+#' X.bm <- as.big.matrix(X)
 #' # lasso, default
 #' par(mfrow=c(1,2))
 #' fit.lasso <- biglasso(X.bm, y, family = 'gaussian')
@@ -141,7 +146,7 @@
 #' data(colon)
 #' X <- colon$X
 #' y <- colon$y
-#' X.bm <- as.big.matrix(X, backingfile = "")
+#' X.bm <- as.big.matrix(X)
 #' # lasso, default
 #' par(mfrow = c(1, 2))
 #' fit.bin.lasso <- biglasso(X.bm, y, penalty = 'lasso', family = "binomial")
@@ -150,51 +155,98 @@
 #' fit.bin.enet <- biglasso(X.bm, y, penalty = 'enet', alpha = 0.5, family = "binomial")
 #' plot(fit.bin.enet, log.l = TRUE, main = 'elastic net, alpha = 0.5')
 #' 
+#' ## Cox regression
+#' set.seed(10101)
+#' N <- 1000; p <- 30; nzc <- p/3
+#' X <- matrix(rnorm(N * p), N, p)
+#' beta <- rnorm(nzc)
+#' fx <- X[, seq(nzc)] %*% beta/3
+#' hx <- exp(fx)
+#' ty <- rexp(N, hx)
+#' tcens <- rbinom(n = N, prob = 0.3, size = 1)  # censoring indicator
+#' y <- cbind(time = ty, status = 1 - tcens)  # y <- Surv(ty, 1 - tcens) with library(survival)
+#' X.bm <- as.big.matrix(X)
+#' fit <- biglasso(X.bm, y, family = "cox")
+#' plot(fit)
+#' 
 #' @export biglasso
 biglasso <- function(X, y, row.idx = 1:nrow(X),
                      penalty = c("lasso", "ridge", "enet"),
-                     family = c("gaussian","binomial"), 
+                     family = c("gaussian", "binomial", "cox"), 
                      alg.logistic = c("Newton", "MM"),
-                     screen = c("SSR", "SEDPP", "SSR-BEDPP", "SSR-Slores", 
-                                "SSR-Dome", "None", "NS-NAC", "SSR-NAC", 
-                                "SEDPP-NAC", "SSR-Dome-NAC", "SSR-BEDPP-NAC",
-                                "SSR-Slores-NAC"),
-                     safe.thresh = 0, ncores = 1, alpha = 1,
+                     screen = c("Adaptive", "SSR", "Hybrid", "None"),
+                     safe.thresh = 0, update.thresh = 1, ncores = 1, alpha = 1,
                      lambda.min = ifelse(nrow(X) > ncol(X),.001,.05), 
                      nlambda = 100, lambda.log.scale = TRUE,
                      lambda, eps = 1e-7, max.iter = 1000, 
                      dfmax = ncol(X)+1,
-                     penalty.factor = rep(1, ncol(X)), 
+                     penalty.factor = rep(1, ncol(X)),
                      warn = TRUE, output.time = FALSE,
                      return.time = TRUE,
                      verbose = FALSE) {
+  
+  # Match deprecated screen methods
+  if(length(screen) == 1 &&
+     screen %in% c("SEDPP", "SSR-BEDPP", "SSR-Slores", "SSR-Slores-Batch", 
+                   "SSR-Dome", "None", "NS-NAC", "SSR-NAC", "SEDPP-NAC",
+                   "SSR-Dome-NAC", "SSR-BEDPP-NAC", "SSR-Slores-NAC", 
+                   "SEDPP-Batch", "SEDPP-Batch-SSR", "SEDPP-Batchfix-SSR")) {
+  
+    if(screen %in% c("SSR-BEDPP", "SSR-Slores")) {
+      warning("Hybrid screen methods (\"SSR-BEDPP\", \"SSR-Slores\") will be renamed as \"Hybrid\". Automatically switching to \"Hybrid\" screen method")
+      screen = "Hybrid"
+    }
+    if(screen %in% c("SSR-Slores-Batch", "SEDPP-Batch", "SEDPP-Batch-SSR", "SEDPP-Batchfix-SSR")) {
+      warning("Adaptive or batch screen methods (\"SSR-Slores-Batch\", \"SEDPP-Batch\", \"SEDPP-Batch-SSR\", \"SEDPP-Batchfix-SSR\") will be renamed as \"Adaptive\". Automatically switching to \"Adaptive\" screen method.")
+      screen = "Adaptive"
+    }
+    if(screen %in% c("SEDPP", "SSR-Dome", "NS-NAC", "SSR-NAC", "SEDPP-NAC",
+                     "SSR-Dome-NAC", "SSR-BEDPP-NAC", "SSR-Slores-NAC")){
+      warning("The following screen methods will be removed:\n\"SEDPP\", \"SSR-Dome\", \"NS-NAC\", \"SSR-NAC\", \"SEDPP-NAC\",\"SSR-Dome-NAC\", \"SSR-BEDPP-NAC\", \"SSR-Slores-NAC\".\nAutomatically switching to \"Adaptive\" screen method.")
+      screen = "Adaptive"
+    }
+  }
+  
 
   family <- match.arg(family)
   penalty <- match.arg(penalty)
   alg.logistic <- match.arg(alg.logistic)
-  screen <- match.arg(screen)
+  if (!identical(penalty, "lasso") || any(penalty.factor != 1) ||
+      family == "cox" || alg.logistic =="MM"){
+    if(length(screen) == 1) screen <- match.arg(screen, choices = c("SSR", "Hybrid", "None"))
+    else screen <- "SSR"
+  } else {
+    screen = match.arg(screen)
+  }
   lambda.min <- max(lambda.min, 1.0e-6)
   
+
   if (identical(penalty, "lasso")) {
     alpha <- 1
   } else if (identical(penalty, 'ridge')) {
     alpha <- 1.0e-6 ## equivalent to ridge regression
+    if (screen == "Adaptive") {
+      warning("For now \"ridge\" does not support \"Adaptive\" screen. Automatically switching to \"SSR\"." )
+      screen <- "SSR"
+    }
   } else if (identical(penalty, 'enet')) {
     if (alpha >= 1 || alpha <= 0) {
       stop("alpha must be between 0 and 1 for elastic net penalty.")
     }
-    if (family == 'gaussian' && (!screen %in% c("SSR", "SSR-BEDPP"))) {
+    if (screen == "Adaptive") {
+      warning("For now \"enet\" does not support \"Adaptive\" screen. Automatically switching to \"SSR\"." )
       screen <- "SSR"
     } 
   }
 
   if (nlambda < 2) stop("nlambda must be at least 2")
   # subset of the response vector
-  y <- y[row.idx]
+  if (is.matrix(y)) y <- y[row.idx,]
+  else y <- y[row.idx]
 
   if (any(is.na(y))) stop("Missing data (NA's) detected.  Take actions (e.g., removing cases, removing features, imputation) to eliminate missing data before fitting the model.")
 
-  if (class(y) != "numeric") {
+  if (!is.double(y)) {
     tmp <- try(y <- as.numeric(y), silent=TRUE)
     if (class(tmp)[1] == "try-error") stop("y must numeric or able to be coerced to numeric")
   }
@@ -209,17 +261,35 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
     n.pos <- sum(y) # number of 1's
     ylab <- ifelse(y == 0, -1, 1) # response label vector of {-1, 1}
   }
+  
+  if (family == 'cox') {
+    if (!is.matrix(y)) stop("y must be a matrix or able to be coerced to a matrix")
+    if (ncol(y) != 2) stop("y must have two columns for survival data: time-on-study and a censoring indicator")
+    if (!all(y[,2] %in% c(0,1))) stop("Second column of y must be a binary censoring indicator")
+    if (!any(y[,2] > 0)) stop('Require at least one failure')
+    tOrder = order(y[,1])
+    d <- as.numeric(table(y[y[,2]==1,1]))
+    dtime <- sort(unique(y[y[,2]==1,1]))
+    row.idx.cox <- which(y[tOrder,1] >= min (dtime))
+    d_idx <- integer(length(row.idx.cox))
+    for(i in 1:length(row.idx.cox)) d_idx[i] <- max(which(dtime <= y[tOrder[row.idx.cox[i]],1])) 
+  }
 
   if (family=="gaussian") {
     yy <- y - mean(y)
-  } else {
+  } else if (family=='binomial'){
     yy <- y
+  } else {
+    yy <- y[tOrder[row.idx.cox],2]
   }
 
   p <- ncol(X)
   if (length(penalty.factor) != p) stop("penalty.factor does not match up with X")
   ## for now penalty.factor is only applicable for "SSR"
-  if (screen != "SSR") penalty.factor <- rep(1, p) 
+  if(any(penalty.factor != 1) & screen != "SSR") {
+    warning("For now penalty.factor is only applicable for \"SSR\". Automatically switching to \"SSR\".")
+    screen = "SSR"
+  }
   storage.mode(penalty.factor) <- "double"
   
   n <- length(row.idx) ## subset of X. idx: indices of rows.
@@ -239,26 +309,17 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
     time <- system.time(
       {
         switch(screen,
-               "None" = {
-                 res <- .Call("cdfit_gaussian", X@address, yy, as.integer(row.idx-1),
+               "Adaptive" = {
+                 res <- .Call("cdfit_gaussian_ada_edpp_ssr", X@address, yy, as.integer(row.idx-1),
                               lambda, as.integer(nlambda), as.integer(lambda.log.scale),
                               lambda.min, alpha,
                               as.integer(user.lambda | any(penalty.factor==0)),
                               eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores), as.integer(verbose),
-                              PACKAGE = 'biglasso')
-               },
-               "SEDPP" = {
-                 res <- .Call("cdfit_gaussian_edpp_active", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores),
+                              as.integer(dfmax), as.integer(ncores), update.thresh, as.integer(verbose),
                               PACKAGE = 'biglasso')
                },
                "SSR" = {
-                 res <- .Call("cdfit_gaussian_hsr", X@address, yy, as.integer(row.idx-1),
+                 res <- .Call("cdfit_gaussian_ssr", X@address, yy, as.integer(row.idx-1),
                               lambda, as.integer(nlambda), as.integer(lambda.log.scale),
                               lambda.min, alpha,
                               as.integer(user.lambda | any(penalty.factor==0)),
@@ -266,65 +327,8 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
                               as.integer(dfmax), as.integer(ncores), as.integer(verbose),
                               PACKAGE = 'biglasso')
                },
-               "SSR-Dome" = {
-                 res <- .Call("cdfit_gaussian_hsr_dome", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores), safe.thresh, 
-                              as.integer(verbose),
-                              PACKAGE = 'biglasso')
-               },
-               "SSR-BEDPP" = {
-                 res <- .Call("cdfit_gaussian_hsr_bedpp", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores), safe.thresh, 
-                              as.integer(verbose),
-                              PACKAGE = 'biglasso')
-               },
-               "NS-NAC" = {
-                 res <- .Call("cdfit_gaussian_nac", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores), as.integer(verbose),
-                              PACKAGE = 'biglasso')
-               },
-               "SEDPP-NAC" = {
-                 res <- .Call("cdfit_gaussian_edpp", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores),
-                              PACKAGE = 'biglasso')
-               },
-               "SSR-NAC" = {
-                 res <- .Call("cdfit_gaussian_hsr_nac", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores), as.integer(verbose),
-                              PACKAGE = 'biglasso')
-               },
-               "SSR-Dome-NAC" = {
-                 res <- .Call("cdfit_gaussian_hsr_dome_nac", X@address, yy, as.integer(row.idx-1),
-                              lambda, as.integer(nlambda), as.integer(lambda.log.scale),
-                              lambda.min, alpha,
-                              as.integer(user.lambda | any(penalty.factor==0)),
-                              eps, as.integer(max.iter), penalty.factor,
-                              as.integer(dfmax), as.integer(ncores), safe.thresh, 
-                              as.integer(verbose),
-                              PACKAGE = 'biglasso')
-               },
-               "SSR-BEDPP-NAC" = {
-                 res <- .Call("cdfit_gaussian_hsr_bedpp_nac", X@address, yy, as.integer(row.idx-1),
+               "Hybrid" = {
+                 res <- .Call("cdfit_gaussian_bedpp_ssr", X@address, yy, as.integer(row.idx-1),
                               lambda, as.integer(nlambda), as.integer(lambda.log.scale),
                               lambda.min, alpha,
                               as.integer(user.lambda | any(penalty.factor==0)),
@@ -347,7 +351,7 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
     iter <- res[[6]]
     rejections <- res[[7]]
     
-    if (screen %in% c("SSR-Dome", "SSR-BEDPP", "SSR-Dome-NAC", "SSR-BEDPP-NAC")) {
+    if (screen %in% c("Hybrid", "Adaptive")) {
       safe_rejections <- res[[8]]
       col.idx <- res[[9]]
     } else {
@@ -358,7 +362,11 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
     
     time <- system.time(
       if (alg.logistic == 'MM') {
-        res <- .Call("cdfit_binomial_hsr_approx", X@address, yy, as.integer(row.idx-1), 
+        if(screen != "SSR") {
+          warning("For now MM algorithm only supports \"SSR\" screen. Automatically switching to \"SSR\".")
+          screen = "SSR"
+        }
+        res <- .Call("cdfit_binomial_ssr_approx", X@address, yy, as.integer(row.idx-1), 
                      lambda, as.integer(nlambda), lambda.min, alpha, 
                      as.integer(user.lambda | any(penalty.factor==0)),
                      eps, as.integer(max.iter), penalty.factor, 
@@ -366,8 +374,8 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
                      as.integer(verbose),
                      PACKAGE = 'biglasso')
       } else {
-        if (screen == "SSR-Slores") {
-          res <- .Call("cdfit_binomial_hsr_slores", X@address, yy, as.integer(n.pos),
+        if (screen == "Hybrid") {
+          res <- .Call("cdfit_binomial_slores_ssr", X@address, yy, as.integer(n.pos),
                        as.integer(ylab), as.integer(row.idx-1), 
                        lambda, as.integer(nlambda), as.integer(lambda.log.scale),
                        lambda.min, alpha, as.integer(user.lambda | any(penalty.factor==0)),
@@ -375,18 +383,17 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
                        as.integer(dfmax), as.integer(ncores), as.integer(warn), safe.thresh,
                        as.integer(verbose),
                        PACKAGE = 'biglasso')
-        } else if (screen == "SSR-Slores-NAC") {
-          res <- .Call("cdfit_binomial_hsr_slores_nac", X@address, yy, as.integer(n.pos),
+        }  else if(screen == "Adaptive") {
+          res <- .Call("cdfit_binomial_ada_slores_ssr", X@address, yy, as.integer(n.pos),
                        as.integer(ylab), as.integer(row.idx-1), 
                        lambda, as.integer(nlambda), as.integer(lambda.log.scale),
                        lambda.min, alpha, as.integer(user.lambda | any(penalty.factor==0)),
                        eps, as.integer(max.iter), penalty.factor, 
                        as.integer(dfmax), as.integer(ncores), as.integer(warn), safe.thresh,
-                       as.integer(verbose),
+                       update.thresh, as.integer(verbose),
                        PACKAGE = 'biglasso')
-        } 
-        else {
-          res <- .Call("cdfit_binomial_hsr", X@address, yy, as.integer(row.idx-1), 
+        } else {
+          res <- .Call("cdfit_binomial_ssr", X@address, yy, as.integer(row.idx-1), 
                        lambda, as.integer(nlambda), as.integer(lambda.log.scale),
                        lambda.min, alpha, as.integer(user.lambda | any(penalty.factor==0)),
                        eps, as.integer(max.iter), penalty.factor, 
@@ -406,15 +413,60 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
     iter <- res[[7]]
     rejections <- res[[8]]
     
-    if (screen %in% c("SSR-Slores", "SSR-Slores-NAC")) {
+    if (screen %in% c("Hybrid", "Adaptive")) {
       safe_rejections <- res[[9]]
       col.idx <- res[[10]]
     } else {
       col.idx <- res[[9]]
     }
     
+  } else if (family == "cox") {
+    time <- system.time(
+      if (screen == 'SSR') {
+        res <- .Call("cdfit_cox_ssr", X@address, yy, d, as.integer(d_idx-1),
+                     as.integer(row.idx[tOrder[row.idx.cox]]-1), lambda,
+                     as.integer(nlambda), as.integer(lambda.log.scale),lambda.min,
+                     alpha, as.integer(user.lambda | any(penalty.factor==0)),
+                     eps, as.integer(max.iter), penalty.factor, as.integer(dfmax),
+                     as.integer(ncores), as.integer(warn), as.integer(verbose),
+                     PACKAGE = 'biglasso')
+        
+      } else if (screen == 'Adaptive') {
+        res <- .Call("cdfit_cox_scox", X@address, yy, d, as.integer(d_idx-1),
+                     as.integer(row.idx[tOrder[row.idx.cox]]-1), lambda,
+                     as.integer(nlambda), as.integer(lambda.log.scale),lambda.min,
+                     alpha, as.integer(user.lambda | any(penalty.factor==0)),
+                     eps, as.integer(max.iter), penalty.factor, as.integer(dfmax),
+                     as.integer(ncores), as.integer(warn), safe.thresh, 
+                     as.integer(verbose), PACKAGE = 'biglasso')
+      } else {
+        res <- .Call("cdfit_cox", X@address, yy, d, as.integer(d_idx-1),
+                     as.integer(row.idx[tOrder[row.idx.cox]]-1), lambda,
+                     as.integer(nlambda), as.integer(lambda.log.scale),lambda.min,
+                     alpha, as.integer(user.lambda | any(penalty.factor==0)),
+                     eps, as.integer(max.iter), penalty.factor, as.integer(dfmax),
+                     as.integer(ncores), as.integer(warn), as.integer(verbose),
+                     PACKAGE = 'biglasso')
+      }
+      
+    )
+    
+    b <- Matrix(res[[1]], sparse = T)
+    center <- res[[2]]
+    scale <- res[[3]]
+    lambda <- res[[4]]
+    loss <- res[[5]]
+    iter <- res[[6]]
+    rejections <- res[[7]]
+
+    if (screen %in% c("Not implemented")) {
+      safe_rejections <- res[[8]]
+      col.idx <- res[[9]]
+    } else {
+      col.idx <- res[[8]]
+    }
   } else {
-    stop("Current version only supports Gaussian or Binominal response!")
+    stop("Current version only supports Gaussian, Binominal or Cox response!")
   }
   if (output.time) {
     cat("\nEnd biglasso: ", format(Sys.time()), '\n')
@@ -424,7 +476,7 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
 
   ## Eliminate saturated lambda values, if any
   ind <- !is.na(iter)
-  a <- a[ind]
+  if (family != "cox") a <- a[ind]
   b <- b[, ind, drop=FALSE]
   iter <- iter[ind]
   lambda <- lambda[ind]
@@ -433,14 +485,21 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
   if (warn & any(iter==max.iter)) warning("Algorithm failed to converge for some values of lambda")
 
   ## Unstandardize coefficients:
-  beta <- Matrix(0, nrow = (p+1), ncol = length(lambda), sparse = T)
-  bb <- b / scale[col.idx]
-  beta[col.idx+1, ] <- bb
-  beta[1,] <- a - crossprod(center[col.idx], bb)
+  if(family == "cox") {
+    beta <- Matrix(0, nrow = p, ncol = length(lambda), sparse = T)
+    bb <- b / scale[col.idx]
+    beta[col.idx, ] <- bb
+  } else {
+    beta <- Matrix(0, nrow = (p+1), ncol = length(lambda), sparse = T)
+    bb <- b / scale[col.idx]
+    beta[col.idx+1, ] <- bb
+    beta[1,] <- a - crossprod(center[col.idx], bb)
+  }
+  
 
   ## Names
   varnames <- if (is.null(colnames(X))) paste("V", 1:p, sep="") else colnames(X)
-  varnames <- c("(Intercept)", varnames)
+  if(family != 'cox') varnames <- c("(Intercept)", varnames)
   dimnames(beta) <- list(varnames, round(lambda, digits = 4))
 
   ## Output
@@ -462,9 +521,7 @@ biglasso <- function(X, y, row.idx = 1:nrow(X),
     rejections = rejections
   )
   
-  if (screen %in% c("SSR-Dome", "SSR-Dome-NAC", 
-                    "SSR-BEDPP", "SSR-BEDPP-NAC", 
-                    "SSR-Slores", "SSR-Slores-NAC")) {
+    if (screen %in% c("Hybrid", "Adaptive")) {
     return.val$safe_rejections <- safe_rejections
   } 
   if (return.time) return.val$time <- as.numeric(time['elapsed'])

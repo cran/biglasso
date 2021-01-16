@@ -4,9 +4,18 @@
 \alias{cv.biglasso}
 \title{Cross-validation for biglasso}
 \usage{
-cv.biglasso(X, y, row.idx = 1:nrow(X), eval.metric = c("default", "MAPE"),
-  ncores = parallel::detectCores(), ..., nfolds = 5, seed, cv.ind,
-  trace = FALSE)
+cv.biglasso(
+  X,
+  y,
+  row.idx = 1:nrow(X),
+  eval.metric = c("default", "MAPE"),
+  ncores = parallel::detectCores(),
+  ...,
+  nfolds = 5,
+  seed,
+  cv.ind,
+  trace = FALSE
+)
 }
 \arguments{
 \item{X}{The design matrix, without an intercept, as in
@@ -75,7 +84,7 @@ functions such as \code{"summary", "plot"} can be directly applied to the
 data(colon)
 X <- colon$X
 y <- colon$y
-X.bm <- as.big.matrix(X, backingfile = "")
+X.bm <- as.big.matrix(X)
 
 ## logistic regression
 cvfit <- cv.biglasso(X.bm, y, family = 'binomial', seed = 1234, ncores = 2)
