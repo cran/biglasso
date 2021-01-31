@@ -1,9 +1,9 @@
-99a9058366d2c9938ac9aa51a986130b *DESCRIPTION
+1c9f4c9fb4e8e5e3cd87f1892f1e4a65 *DESCRIPTION
 b20b6734380fdef7f7a13f3a9e668950 *NAMESPACE
-da77f5dd85c556f2df0beaccf3fa3b33 *NEWS.md
+9daf1a0813d4c9e6b600d995e5c9f177 *NEWS.md
 a62322263904cd2e529808076bab8774 *R/RcppExports.R
-fb221013823c48fad0f650deacd4f1e0 *R/biglasso-package.R
-cf03af8be547c9bbca8b1fce86369286 *R/biglasso.R
+e53c975a4418ac8fedbcfe7da72af4d3 *R/biglasso-package.R
+b0ea471ec516deb36305f9418c1cf573 *R/biglasso.R
 17eb58496cbe185bac6c04987aed3a79 *R/cv.biglasso.R
 3468fec5e76496c8b80b38113f05aead *R/data.R
 7d21bbc7395ceab5d09eb37fc5be0af3 *R/loss.R
@@ -18,9 +18,9 @@ c38bcfbdb1a3fa054195aed6a7225042 *build/vignette.rds
 2119a8e36e3c823c5b7dfb915ef836a4 *data/colon.RData
 f7fd4c401b25250c12b37a7745e5b5b8 *inst/CITATION
 cbcb340dd9b10e30fd1de209fda3a614 *inst/doc/biglasso.R
-146c70630cbb3e1e09184089016e1ed9 *inst/doc/biglasso.Rmd
-0448308088f8ac72e75974c912e4ea70 *inst/doc/biglasso.html
-ad370d11e3a0e4a086099fd55816fa05 *man/biglasso-package.Rd
+32e219864be2bf90348f6fe0221ec18c *inst/doc/biglasso.Rmd
+76542b7983c9c762da0bc216b197c12c *inst/doc/biglasso.html
+354e5cfe4bf93f0f5fb3c64d000c63b5 *man/biglasso-package.Rd
 38bd13bcb85ca78975c2d25afca2fb2d *man/biglasso.Rd
 c79cb0515b6988c3f392343fd2f543fe *man/colon.Rd
 bb4979f4f7d9ef6b7751b04e99a16053 *man/cv.biglasso.Rd
@@ -36,7 +36,7 @@ a89aefd0364aca4203ceb278b099fd8d *src/Makevars
 e327561ce49a7dcc54881598f6be7567 *src/RcppExports.cpp
 c03e19e2cfeb1e91e0e10f11c7aed153 *src/biglasso_omp.h
 630dfbfd14bef097f367cc75d2852363 *src/binomial.cpp
-db2f1a0bed5265a1f4e4bb86e709d529 *src/cox.cpp
+e8f2ab2af98a77c432c5ae306d9dbba6 *src/cox.cpp
 11638bd377b58fa7af6b598db23113dc *src/defines.h
 6cd0d9c4dc28af2e69d87340528df09e *src/gaussian.cpp
 9ee552f032b9255c2d307c193b5307f9 *src/init.c
@@ -44,4 +44,4 @@ db2f1a0bed5265a1f4e4bb86e709d529 *src/cox.cpp
 88b34a970ecf945e26561ddd10a9fb1c *src/utilities.h
 9cb75e77e723d8e695916c3758167e5f *vignettes/2020-12-18_vary_n_pkgs.png
 71b2b3033c524d2db47269cfd7135afa *vignettes/2020-12-18_vary_p_pkgs.png
-146c70630cbb3e1e09184089016e1ed9 *vignettes/biglasso.Rmd
+32e219864be2bf90348f6fe0221ec18c *vignettes/biglasso.Rmd
