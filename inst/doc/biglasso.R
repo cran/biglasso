@@ -72,6 +72,16 @@ fit <- biglasso(X.bm, y, family = "cox")
 plot(fit)
 
 ## -----------------------------------------------------------------------------
+set.seed(10101)
+n=300; p=300; m=5; s=10; b=1
+x = matrix(rnorm(n * p), n, p)
+beta = matrix(seq(from=-b,to=b,length.out=s*m),s,m)
+y = x[,1:s] %*% beta + matrix(rnorm(n*m,0,1),n,m)
+x.bm = as.big.matrix(x)
+fit = biglasso(x.bm, y, family = "mgaussian")
+plot(fit)
+
+## -----------------------------------------------------------------------------
 ## The data has 1000 observations and 5,000 features.
 ## Much larger data can be handled in the same way.
 ## 10 of the features has non-zero coefficients

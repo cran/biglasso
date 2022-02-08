@@ -143,8 +143,8 @@ RcppExport SEXP cdfit_gaussian_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   }
   
   // standardize: get center, scale; get p_keep_ptr, col_idx; get z, lambda_max, xmax_idx;
-  standardize_and_get_residual(center, scale, p_keep_ptr, col_idx, z, lambda_max_ptr, xmax_ptr, xMat, 
-                               y, row_idx, lambda_min, alpha, n, p);
+  standardize_and_get_residual(center, scale, p_keep_ptr, col_idx, z, lambda_max_ptr,
+                               xmax_ptr, xMat, y, row_idx, alpha, n, p);
   
   p = p_keep;   // set p = p_keep, only loop over columns whose scale > 1e-6
   
@@ -158,7 +158,7 @@ RcppExport SEXP cdfit_gaussian_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   
   // Objects to be returned to R
   arma::sp_mat beta = arma::sp_mat(p, L); // beta
-  double *a = Calloc(p, double); //Beta from previous iteration
+  double *a = R_Calloc(p, double); //Beta from previous iteration
   NumericVector loss(L);
   IntegerVector iter(L);
   IntegerVector n_reject(L);
@@ -166,9 +166,9 @@ RcppExport SEXP cdfit_gaussian_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   double l1, l2, cutoff, shift;
   double max_update, update, thresh; // for convergence check
   int i, j, jj, l, violations, lstart;
-  int *e1 = Calloc(p, int); // ever active set
-  int *e2 = Calloc(p, int); // strong set
-  double *r = Calloc(n, double);
+  int *e1 = R_Calloc(p, int); // ever active set
+  int *e2 = R_Calloc(p, int); // strong set
+  double *r = R_Calloc(n, double);
   for (i = 0; i < n; i++) r[i] = y[i];
   double sumResid = sum(r, n);
   loss[0] = gLoss(r,n);
@@ -214,7 +214,7 @@ RcppExport SEXP cdfit_gaussian_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
       }
       if (nv > dfmax) {
         for (int ll=l; ll<L; ll++) iter[ll] = NA_INTEGER;
-        Free(a); Free(r); Free(e1); Free(e2);
+        R_Free(a); R_Free(r); R_Free(e1); R_Free(e2);
         return List::create(beta, center, scale, lambda, loss, iter, n_reject, Rcpp::wrap(col_idx));
       }
       // strong set
@@ -286,7 +286,7 @@ RcppExport SEXP cdfit_gaussian_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
     }
   }
   
-  Free(a); Free(r); Free(e1); Free(e2);
+  R_Free(a); R_Free(r); R_Free(e1); R_Free(e2);
   return List::create(beta, center, scale, lambda, loss, iter, n_reject, Rcpp::wrap(col_idx));
 }
 
@@ -348,7 +348,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
   
   standardize_and_get_residual(center, scale, p_keep_ptr, col_idx, z, 
                                lambda_max_ptr, xmax_ptr, xMat, 
-                               y, row_idx, lambda_min, alpha, n, p);
+                               y, row_idx, alpha, n, p);
   p = p_keep; // set p = p_keep, only loop over columns whose scale > 1e-6
   
   if (verbose) {
@@ -362,7 +362,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
   
   // Objects to be returned to R
   arma::sp_mat beta = arma::sp_mat(p, L); //Beta
-  double *a = Calloc(p, double); //Beta from previous iteration
+  double *a = R_Calloc(p, double); //Beta from previous iteration
   NumericVector loss(L);
   IntegerVector iter(L);
   IntegerVector n_reject(L);
@@ -371,11 +371,11 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
   double l1, l2, shift;
   double max_update, update, thresh; // for convergence check
   int i, j, jj, l, violations, lstart; //temp index
-  int *ever_active = Calloc(p, int); // ever-active set
-  int *strong_set = Calloc(p, int); // strong set
-  int *discard_beta = Calloc(p, int); // index set of discarded features;
-  int *discard_old = Calloc(p, int);
-  double *r = Calloc(n, double);
+  int *ever_active = R_Calloc(p, int); // ever-active set
+  int *strong_set = R_Calloc(p, int); // strong set
+  int *discard_beta = R_Calloc(p, int); // index set of discarded features;
+  //int *discard_old = R_Calloc(p, int);
+  double *r = R_Calloc(n, double);
   for (i = 0; i < n; i++) r[i] = y[i];
   double sumResid = sum(r, n);
   loss[0] = gLoss(r, n);
@@ -383,15 +383,15 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
   
   // EDPP
   double c;
-  double *lhs2 = Calloc(p, double); //Second term on LHS
+  double *lhs2 = R_Calloc(p, double); //Second term on LHS
   double rhs2 = 0.0; // second term on RHS
-  double *Xty = Calloc(p, double);
-  double *Xtr = Calloc(p, double); // Xtr at previous update of EDPP
+  double *Xty = R_Calloc(p, double);
+  double *Xtr = R_Calloc(p, double); // Xtr at previous update of EDPP
   for(j = 0; j < p; j++) {
     Xty[j] = z[j] * n;
     Xtr[j] = Xty[j];
   }
-  double *yhat = Calloc(n, double); // yhat at previous rupdate of EDPP
+  double *yhat = R_Calloc(n, double); // yhat at previous rupdate of EDPP
   double yhat_norm2;
   double ytyhat;
   double y_norm2 = 0; // ||y||^2
@@ -425,7 +425,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
     lambda = Rcpp::as<NumericVector>(lambda_);
   } 
   
-  int l_prev = lstart; // lambda index at previous update of EDPP
+  int l_prev = 0; // lambda index at previous update of EDPP
   // compute v1 for lambda_max
   double xty = sign(crossprod_bm(xMat, y, row_idx, center[xmax_idx], scale[xmax_idx], n, xmax_idx));
   
@@ -448,7 +448,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
       }
       if (nv > dfmax) {
         for (int ll=l; ll<L; ll++) iter[ll] = NA_INTEGER;
-        Free(ever_active); Free(r); Free(a); Free(discard_beta); Free(lhs2); Free(Xty); Free(Xtr); Free(yhat); Free(discard_old); Free(strong_set);
+        R_Free(ever_active); R_Free(r); R_Free(a); R_Free(discard_beta); R_Free(lhs2); R_Free(Xty); R_Free(Xtr); R_Free(yhat); R_Free(strong_set); //R_Free(discard_old); 
         return List::create(beta, center, scale, lambda, loss, iter,  n_reject, n_safe_reject, Rcpp::wrap(col_idx));
       }
       if(gain - n_safe_reject[l - 1] * (l - l_prev) > update_thresh * p && l != L - 1) { // Update EDPP if not discarding enough
@@ -472,6 +472,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
         edpp_update(xMat, r, sumResid, lhs2, Xty, Xtr, yhat, ytyhat, yhat_norm2, row_idx, col_idx,
                     center, scale, n, p);
         rhs2 = sqrt(n * (y_norm2 - ytyhat * ytyhat / yhat_norm2));
+
         for(j = 0; j < p; j++) z[j] = Xtr[j] / n;
         if(verbose) {
           // output time
@@ -492,8 +493,9 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
           edpp_screen(discard_beta, n, p, rhs2, Xtr, lhs2, c,
                       1 / lambda[l_prev], m, alpha, col_idx);
         } else { // Apply BEDPP check
+          c = (lambda_max - lambda[l]) / lambda_max / lambda[l];
           edpp_screen(discard_beta, n, p, rhs2, Xtr, lhs2, c,
-                      (1 / lambda[l_prev] + 1 / lambda[l]) / 2, m, alpha, col_idx);
+                      (1 / lambda_max + 1 / lambda[l]) / 2, m, alpha, col_idx);
         }
         n_safe_reject[l] = sum(discard_beta, p);
         gain += n_safe_reject[l];
@@ -511,9 +513,9 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
       for(j = 0; j < p; j ++) {
         jj = col_idx[j];
         xjtx = crossprod_bm_Xj_Xk(xMat, row_idx, center, scale, n, jj, xmax_idx);
-        lhs2[j] = -xty * lambda[l] * xjtx;
+        lhs2[j] = -xty * lambda_max * xjtx;
       }
-      rhs2 = sqrt(n * y_norm2 - pow(n * lambda[l], 2));
+      rhs2 = sqrt(n * y_norm2 - pow(n * lambda_max, 2));
       if(verbose) {
         // output time
         char buff[100];
@@ -521,8 +523,9 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
         strftime (buff, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&now));
         Rprintf("Done calculating BEDPP rule. Now time: %s\n", buff);
       }
+      c = (lambda_max - lambda[l]) / lambda_max / lambda[l];
       edpp_screen(discard_beta, n, p, rhs2, Xtr, lhs2, c,
-                  1 / lambda[l_prev], m, alpha, col_idx);
+                  1 / lambda_max, m, alpha, col_idx);
       n_safe_reject[l] = sum(discard_beta, p);
       gain = n_safe_reject[l];
     }
@@ -540,7 +543,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
       }
     }
     n_reject[l] = p - sum(strong_set, p);
-    for(j = 0; j < p; j++) discard_old[j] = discard_beta[j];
+    //for(j = 0; j < p; j++) discard_old[j] = discard_beta[j];
     
     while(iter[l] < max_iter) {
       while (iter[l] < max_iter) {
@@ -590,7 +593,7 @@ RcppExport SEXP cdfit_gaussian_ada_edpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_, SEX
     }
   }
   
-  Free(ever_active); Free(r); Free(a); Free(discard_beta); Free(lhs2); Free(Xty); Free(Xtr); Free(yhat); Free(discard_old); Free(strong_set);
+  R_Free(ever_active); R_Free(r); R_Free(a); R_Free(discard_beta); R_Free(lhs2); R_Free(Xty); R_Free(Xtr); R_Free(yhat); R_Free(strong_set); //R_Free(discard_old);
   //ProfilerStop();
   return List::create(beta, center, scale, lambda, loss, iter, n_reject, n_safe_reject, Rcpp::wrap(col_idx));
 }
@@ -654,8 +657,8 @@ RcppExport SEXP cdfit_gaussian_bedpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   }
   
   // standardize: get center, scale; get p_keep_ptr, col_idx; get z, lambda_max, xmax_idx;
-  standardize_and_get_residual(center, scale, p_keep_ptr, col_idx, z, lambda_max_ptr, xmax_ptr, xMat, 
-                               y, row_idx, lambda_min, alpha, n, p);
+  standardize_and_get_residual(center, scale, p_keep_ptr, col_idx, z, lambda_max_ptr,
+                               xmax_ptr, xMat, y, row_idx, alpha, n, p);
   
   p = p_keep; // set p = p_keep, only loop over columns whose scale > 1e-6
   
@@ -669,7 +672,7 @@ RcppExport SEXP cdfit_gaussian_bedpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   
   // Objects to be returned to R
   arma::sp_mat beta = arma::sp_mat(p, L); // Beta
-  double *a = Calloc(p, double); //Beta from previous iteration
+  double *a = R_Calloc(p, double); //Beta from previous iteration
   NumericVector loss(L);
   IntegerVector iter(L);
   IntegerVector n_reject(L); // number of total rejections;
@@ -678,9 +681,9 @@ RcppExport SEXP cdfit_gaussian_bedpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   double l1, l2, cutoff, shift;
   double max_update, update, thresh; // for convergence check
   int i, j, jj, l, violations, lstart; 
-  int *e1 = Calloc(p, int); // ever-active set
-  int *e2 = Calloc(p, int); // strong set
-  double *r = Calloc(n, double);
+  int *e1 = R_Calloc(p, int); // ever-active set
+  int *e2 = R_Calloc(p, int); // strong set
+  double *r = R_Calloc(n, double);
   for (i = 0; i < n; i++) r[i] = y[i];
   double sumResid = sum(r, n);
   loss[0] = gLoss(r,n);
@@ -713,8 +716,8 @@ RcppExport SEXP cdfit_gaussian_bedpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
   vector<double> xty;
   vector<double> sign_lammax_xtxmax;
   double ynorm_sq = 0;
-  int *bedpp_reject = Calloc(p, int);
-  int *bedpp_reject_old = Calloc(p, int);
+  int *bedpp_reject = R_Calloc(p, int);
+  int *bedpp_reject_old = R_Calloc(p, int);
   int bedpp; // if 0, don't perform bedpp test
   if (bedpp_thresh < 1) {
     bedpp = 1; // turn on bedpp test
@@ -749,7 +752,7 @@ RcppExport SEXP cdfit_gaussian_bedpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
       }
       if (nv > dfmax) {
         for (int ll = l; ll < L; ll++) iter[ll] = NA_INTEGER;
-        Free(a); Free(r); Free(e1); Free(e2); Free(bedpp_reject); Free(bedpp_reject_old);
+        R_Free(a); R_Free(r); R_Free(e1); R_Free(e2); R_Free(bedpp_reject); R_Free(bedpp_reject_old);
         return List::create(beta, center, scale, lambda, loss, iter, 
                             n_reject, n_bedpp_reject, Rcpp::wrap(col_idx));
       }
@@ -846,7 +849,7 @@ RcppExport SEXP cdfit_gaussian_bedpp_ssr(SEXP X_, SEXP y_, SEXP row_idx_,
     }
   }
   
-  Free(a); Free(r); Free(e1); Free(e2); Free(bedpp_reject); Free(bedpp_reject_old);
+  R_Free(a); R_Free(r); R_Free(e1); R_Free(e2); R_Free(bedpp_reject); R_Free(bedpp_reject_old);
   //ProfilerStop();
   return List::create(beta, center, scale, lambda, loss, iter, n_reject, n_bedpp_reject, Rcpp::wrap(col_idx));
 }
