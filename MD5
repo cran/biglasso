@@ -1,6 +1,6 @@
-e507fc4b76eaa1b257fc4ee63c2316aa *DESCRIPTION
+ef80c3fa1f2e50b133dc48eab498fd85 *DESCRIPTION
 7b6fbe0ece5861e6c02eaae9d7fa40c6 *NAMESPACE
-f4e55ef982b52260bb5b1a48dba7bd75 *NEWS.md
+7bf624389717efe06479db83a769a476 *NEWS.md
 a62322263904cd2e529808076bab8774 *R/RcppExports.R
 e53c975a4418ac8fedbcfe7da72af4d3 *R/biglasso-package.R
 b00961338a3bc110e0ddd69aaa9768cd *R/biglasso.R
@@ -10,17 +10,17 @@ acb3959f0d04de45a120308672323550 *R/loss.R
 a5b1a8c96216a7d93170ca3621366967 *R/plot.biglasso.R
 c3e331183d6aff0fad398a53eb025ef6 *R/plot.cv.biglasso.R
 ec396629241ad1535f5e6fa579ee5624 *R/plot.mbiglasso.R
-3dc7d17eb540e1b5a1c7817787ba573c *R/predict.R
+f67115416a67ebb39fd8b06cdd8562df *R/predict.R
 c52b83148539d5e7ef387c2bb6eeabd3 *R/predict.cv.R
 e3316c3d260b0b8cfd3b3ee42f19acf4 *R/setupX.R
 838bd7e89af989c97b021c9cd8fd50ce *R/summary.cv.biglasso.R
-b5739783b7ef60a6a7466c137c62f0aa *build/vignette.rds
+584665d850649499f1c9415c587c92e8 *build/vignette.rds
 5f49af804f582ad4577f8cad7d34ce97 *cleanup
 2119a8e36e3c823c5b7dfb915ef836a4 *data/colon.RData
-f7fd4c401b25250c12b37a7745e5b5b8 *inst/CITATION
-c7005a148e5444e70b551abbe7c00011 *inst/doc/biglasso.R
-41a2131452e0de8ab675d8aa0e5616e5 *inst/doc/biglasso.Rmd
-8f8036ff9e5687e84f12115a6433754d *inst/doc/biglasso.html
+f26787d10e04938de89b85cd98f5a77a *inst/CITATION
+ed9e5b85f7626f660964091db15950ca *inst/doc/biglasso.R
+284abeed765955e999ac277caab27f10 *inst/doc/biglasso.Rmd
+179fb407f76fca6a4a3dafce9d557236 *inst/doc/biglasso.html
 354e5cfe4bf93f0f5fb3c64d000c63b5 *man/biglasso-package.Rd
 1b97296df552cd83133f499a646bdd99 *man/biglasso.Rd
 8f55e01034d4212d94e9573fbe06fe2e *man/colon.Rd
@@ -29,7 +29,7 @@ e91673c1fedc9ee65b4b60442293d572 *man/loss.biglasso.Rd
 8bac462109e4e26e90104890f7a98dd8 *man/plot.biglasso.Rd
 019351665b4a2531727d8e1f11c22951 *man/plot.cv.biglasso.Rd
 9b15b1d1cb944aa6be563a8049ba8b4c *man/plot.mbiglasso.Rd
-c70092a2be071678874b451806c71e65 *man/predict.biglasso.Rd
+2e378dd226afee0b9928a1c6e7629298 *man/predict.biglasso.Rd
 9b8bf5d66a07bd635c0d0bf68c5b3d85 *man/predict.cv.biglasso.Rd
 ce74fa1d20a9e8d42f8b4a6378da4cc6 *man/setupX.Rd
 ed8a4f3f646cb74ea7f9d35b1348e43b *man/summary.cv.biglasso.Rd
@@ -47,4 +47,4 @@ c779b22f9dc1e75168011e150ef50850 *src/utilities.cpp
 70e5b4264fb108392c1ee2f240948728 *src/utilities.h
 9cb75e77e723d8e695916c3758167e5f *vignettes/2020-12-18_vary_n_pkgs.png
 71b2b3033c524d2db47269cfd7135afa *vignettes/2020-12-18_vary_p_pkgs.png
-41a2131452e0de8ab675d8aa0e5616e5 *vignettes/biglasso.Rmd
+284abeed765955e999ac277caab27f10 *vignettes/biglasso.Rmd

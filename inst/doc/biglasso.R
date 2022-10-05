@@ -82,19 +82,18 @@ fit = biglasso(x.bm, y, family = "mgaussian")
 plot(fit)
 
 ## -----------------------------------------------------------------------------
-## The data has 1000 observations and 5,000 features.
-## Much larger data can be handled in the same way.
-## 10 of the features has non-zero coefficients
+## The data has 200 observations, 600 features, and 10 non-zero coefficients.
+## This is not actually very big, but vignettes in R are supposed to render
+## quickly. Much larger data can be handled in the same way.
 if(!file.exists('BigX.bin')) {
   X <- matrix(rnorm(1000 * 5000), 1000, 5000)
   beta <- c(-5:5)
   y <- as.numeric(X[,1:11] %*% beta)
   write.csv(X, "BigX.csv", row.names = F)
   write.csv(y, "y.csv", row.names = F)
-  ## Pretend the data is stored in the ~90MB .csv file and is too large to fit into memory
+  ## Pretend that the data in "BigX.csv" is too large to fit into memory
   X.bm <- setupX("BigX.csv", header = T)
 }
-
 
 ## ---- warning=F---------------------------------------------------------------
 rm(list = c("X", "X.bm", "y")) # Pretend starting a new session

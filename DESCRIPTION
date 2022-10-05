@@ -1,16 +1,21 @@
 Package: biglasso
-Version: 1.5.1
-Date: 2022-03-04
+Version: 1.5.2
+Date: 2022-10-05
 Title: Extending Lasso Model Fitting to Big Data
-Author: Yaohui Zeng [aut], Chuyi Wang [aut], Patrick Breheny [aut]
+Authors@R: c(
+    person("Yaohui", "Zeng", role = c("aut")),
+    person("Chuyi", "Wang", role = c("aut")),
+    person("Patrick", "Breheny", role=c("aut","cre"),
+      email="patrick-breheny@uiowa.edu", comment=c(ORCID="0000-0002-0650-1119")))
 Maintainer: Patrick Breheny <patrick-breheny@uiowa.edu>
-Description: Extend lasso and elastic-net model fitting for ultrahigh-dimensional, 
-    multi-gigabyte data sets that cannot be loaded into memory. It's much more 
-    memory- and computation-efficient as compared to existing lasso-fitting packages 
-    like 'glmnet' and 'ncvreg', thus allowing for very powerful big data analysis 
-    even with an ordinary laptop.
+Description: Extend lasso and elastic-net model fitting for ultra
+    high-dimensional, multi-gigabyte data sets that cannot be loaded into
+    memory. Designed to be more memory- and computation-efficient than existing
+    lasso-fitting packages like 'glmnet' and 'ncvreg', thus allowing
+    the user to analyze big data analysis even on an ordinary laptop.
 License: GPL-3
-URL: https://github.com/YaohuiZeng/biglasso,
+URL: https://yaohuizeng.github.io/biglasso/index.html,
+        https://github.com/YaohuiZeng/biglasso,
         https://arxiv.org/abs/1701.05936
 BugReports: https://github.com/YaohuiZeng/biglasso/issues
 Depends: R (>= 3.2.0), bigmemory (>= 4.5.0), Matrix, ncvreg
@@ -18,9 +23,12 @@ Imports: Rcpp (>= 0.12.1), methods
 LinkingTo: Rcpp, RcppArmadillo (>= 0.8.600), bigmemory, BH
 VignetteBuilder: knitr
 Suggests: parallel, testthat, glmnet, survival, knitr, rmarkdown
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
 Encoding: UTF-8
 NeedsCompilation: yes
-Packaged: 2022-03-04 22:35:09 UTC; pbreheny
+Packaged: 2022-10-05 21:42:37 UTC; pbreheny
+Author: Yaohui Zeng [aut],
+  Chuyi Wang [aut],
+  Patrick Breheny [aut, cre] (<https://orcid.org/0000-0002-0650-1119>)
 Repository: CRAN
-Date/Publication: 2022-03-09 08:00:12 UTC
+Date/Publication: 2022-10-05 22:40:05 UTC
