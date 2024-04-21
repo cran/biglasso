@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -95,7 +95,7 @@ if(!file.exists('BigX.bin')) {
   X.bm <- setupX("BigX.csv", header = T)
 }
 
-## ---- warning=F---------------------------------------------------------------
+## ----warning=F----------------------------------------------------------------
 rm(list = c("X", "X.bm", "y")) # Pretend starting a new session
 X.bm <- attach.big.matrix("BigX.desc")
 y <- read.csv("y.csv")[,1]
